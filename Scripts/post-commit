@@ -68,7 +68,6 @@ function detect_os {
 		VERSION=`$CTRLR_ROOT/Scripts/git-revision.sh`
 		PACKAGE=$CTRLR_ROOT/Packaging/Linux/Ctrlr-$ARCH-$VERSION.sh
 		BUILD_LOG=$CTRLR_ROOT/Builds/Ctrlr-$ARCH-$VERSION.linux.build.log
-		CTRLR_KEY="$CTRLR_ROOT/Packaging/ctrlr.key"
 		
 		if [ "$DISTRO" == "Ubuntu" ]; then
 			echo "CTRLR: distro detected as $DISTRO, check packages"
@@ -322,9 +321,9 @@ function build_now_linux {
 	rm -f $CTRLR_ROOT/Bin/Ctrlr-*
 	
 	echo "CTRLR: check if boost is unpacked"
-	if [ ! -d $CTRLR_ROOT/Boost/boost ]; then
+	if [ ! -e $CTRLR_ROOT/Source/Misc/boost/boost ]; then
 		echo "CTRLR: need to unpack boost.zip"
-		cd $CTRLR_ROOT/Boost
+		cd $CTRLR_ROOT/Source/Misc/boost
 		if [ -e boost.zip ]; then
 			unzip boost.zip
 		else
@@ -335,10 +334,10 @@ function build_now_linux {
 		echo "CTRLR: boot directory exists"
 	fi
 	
-	echo "CTRLR: Build Standalone"
+	echo "CTRLR: Build"
 	echo -n > $BUILD_LOG
 	
-	cd $CTRLR_ROOT/Builds/Generated/Linux/Standalone
+	cd $CTRLR_ROOT/Builds/LinuxMakefile
 	if [ "$ARGS" == "clean" ]; then
 		echo "CTRLR: clean before build"
 		rm -rf ./build
@@ -346,29 +345,17 @@ function build_now_linux {
 	
 	./build.sh -f | tee -ia $BUILD_LOG
 	if [ $? -ne 0 ]; then
-		echo "CTRLR: build for Standalone failed"
-		exit 1
-	fi
-	
-	cd $CTRLR_ROOT/Builds/Generated/Linux/VST
-	if [ "$ARGS" == "clean" ]; then
-		echo "CTRLR: clean before build"
-		rm -rf ./build
-	fi
-	./build.sh -f | tee -ia $BUILD_LOG
-	
-	if [ $? -ne 0 ]; then
-		echo "CTRLR: build for VST dailed"
+		echo "CTRLR: build failed"
 		exit 1
 	fi
 	
 	echo "CTRLR: strip binaries"
-	if [ -e $CTRLR_ROOT/Bin/Ctrlr ]; then
-		strip $CTRLR_ROOT/bin/Ctrlr-*
+	if [ -e $CTRLR_ROOT/Builds/LinuxMakefile/build/Ctrlr ]; then
+		strip $CTRLR_ROOT/Builds/LinuxMakefile/build/Ctrlr
 	fi
 	
-	if [ -e $CTRLR_ROOT/Bin/Ctrlr-VST.so ]; then
-		strip $CTRLR_ROOT/Bin/libCtrlr-*.so
+	if [ -e $CTRLR_ROOT/Builds/LinuxMakefile/build/Ctrlr.so ]; then
+		strip $CTRLR_ROOT/Builds/LinuxMakefile/build/Ctrlr.so
 	fi
 	
 	echo "CTRLR: Clean old package files"
@@ -377,14 +364,10 @@ function build_now_linux {
 	echo "CTRLR: copy files for package"
 	mkdir -p $CTRLR_ROOT/Packaging/Linux/Ctrlr
 	
-	cp -r $CTRLR_ROOT/Bin/Ctrlr-* $CTRLR_ROOT/Packaging/Linux/Ctrlr/
-	cp -r $CTRLR_ROOT/Bin/libCtrlr-* $CTRLR_ROOT/Packaging/Linux/Ctrlr/
+	cp -r $CTRLR_ROOT/Builds/LinuxMakefile/build/Ctrlr $CTRLR_ROOT/Packaging/Linux/Ctrlr/
+	cp -r $CTRLR_ROOT/Builds/LinuxMakefile/build/Ctrlr.so $CTRLR_ROOT/Packaging/Linux/Ctrlr/
 	cp -r $CTRLR_ROOT/Panels $CTRLR_ROOT/Packaging/Linux/Ctrlr/
 	cp -r $CTRLR_ROOT/Doc $CTRLR_ROOT/Packaging/Linux/Ctrlr/
-	
-	echo "CTRLR: strip binaries"
-	strip $CTRLR_ROOT/Packaging/Linux/Ctrlr/Ctrlr-*
-	strip $CTRLR_ROOT/Packaging/Linux/Ctrlr/libCtrlr-*.so
 	
 	echo "CTRLR: create self extracting package"
 	
@@ -394,18 +377,9 @@ function build_now_linux {
 		exit 1
 	fi
 	
-	echo "CTRLR: scp, key: $CTRLR_KEY, pkg: $PACKAGE, out: $OUTPUT"
-	
-	if [ -f $CTRLR_KEY ]; then
-		echo "CTRLR: using private key: $CTRLR_KEY"	
-		scp -v -i "$CTRLR_KEY" $PACKAGE $BUILD_LOG $OUTPUT
-	else
-		echo "CTRLR: private key not specified, using defaults"
-		scp -v $PACKAGE $BUILD_LOG $OUTPUT
-	fi
+	echo "CTRLR: scp, pkg: $PACKAGE, out: $OUTPUT"	
+	scp -v $PACKAGE $BUILD_LOG $OUTPUT
 }
 
 detect_os
-#build_now
-windows_create_installer
-windows_copy_to_website
+build_now
